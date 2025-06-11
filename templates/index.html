@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <title>Rifa</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      text-align: center;
+      background-color: #e6f0ff;
+      color: #003366;
+    }
+
+    h1 {
+      margin-top: 40px;
+      color: #004aad;
+    }
+
+    .boleto {
+      display: inline-block;
+      width: 50px;
+      padding: 10px;
+      margin: 5px;
+      text-align: center;
+      border: 2px solid #4a90e2;
+      border-radius: 8px;
+      text-decoration: none;
+      color: #004aad;
+      background-color: #d6e6ff;
+      cursor: pointer;
+      user-select: none;
+    }
+
+    .boleto:hover {
+      background-color: #a8c4ff;
+    }
+
+    .reservado {
+      background-color: #ff9999;
+      pointer-events: none;
+      color: white;
+      cursor: not-allowed;
+      border-color: #cc6666;
+    }
+
+    .seleccionado {
+      background-color: #4a90e2 !important;
+      color: white;
+      border-color: #2d5bbf;
+    }
+
+    .contenido-principal {
+      display: flex;
+      justify-content: center;
+      align-items: flex-start;
+      gap: 20px;
+      max-width: 2000px;
+      margin: 10px auto;
+    }
+
+    .contenedor-imagen {
+      flex: 1 1 300px;
+      max-width: 550px;
+      border: 2px solid #ccc;
+      border-radius: 12px;
+      padding: 10px;
+      background-color: #f0f6ff;
+      box-shadow: 0 2px 6px rgba(74, 144, 226, 0.3);
+    }
+
+    .contenedor-imagen img {
+      width: 100%;
+      height: auto;
+      border-radius: 10px;
+    }
+
+    .grid {
+      flex: 2 1 550px;
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 10px;
+      max-width: 1000px;
+    }
+
+    button {
+      margin-top: 20px;
+      padding: 10px 20px;
+      font-size: 16px;
+      cursor: pointer;
+      border-radius: 8px;
+      background-color: #1877f2;
+      color: white;
+      border: none;
+    }
+
+    #modalConfirmacion {
+      display: none;
+      position: fixed;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background: rgba(0, 0, 0, 0.5);
+      justify-content: center;
+      align-items: center;
+      z-index: 1000;
+    }
+
+    #modalConfirmacion .contenido {
+      background: white;
+      padding: 20px;
+      border-radius: 12px;
+      box-shadow: 0 0 20px rgba(0,0,0,0.2);
+      text-align: center;
+      width: 400px;
+    }
+  </style>
+</head>
+<body>
+  <h1>Selecciona tus números para ganar una Bicicleta Eléctrica</h1>
+  <p>Los números en blanco están disponibles</p>
+
+  <div class="contenido-principal">
+    <div class="contenedor-imagen">
+      <img src="{{ url_for('static', filename='bici.jpg') }}" alt="Premio de la rifa" id="imagen-premio">
+    </div>
+
+    <div class="grid">
+      {% for numero, reservado in numeros %}
+        {% if reservado %}
+          <div class="boleto reservado">{{ numero }}</div>
+        {% else %}
+          <div class="boleto" onclick="toggleSeleccion(this, {{ numero }})">{{ numero }}</div>
+        {% endif %}
+      {% endfor %}
+    </div>
+  </div>
+
+  <div style="max-width: 700px; margin: 20px auto; text-align: center;">
+    <button onclick="abrirModalConfirmacion()">Confirmar selección</button>
+    <p style="margin-top: 15px;">
+      Los resultados se darán a conocer en nuestro perfil de 
+      <a href="https://www.facebook.com/Alison.Gonzalez.683/" target="_blank" style="text-decoration: none; color: #1877f2;">Facebook</a> y
+      <a href="https://www.facebook.com/hugo.gonzalez.16100?locale=es_LA" target="_blank" style="text-decoration: none; color: #1877f2;">Facebook</a>
+    </p>
+  </div>
+
+  <!-- MODAL DE CONFIRMACIÓN -->
+  <div id="modalConfirmacion">
+    <div class="contenido">
+      <h2>Confirmar selección</h2>
+      <p>¿Estás seguro de que quieres reservar estos números?</p>
+      <button onclick="confirmarSeleccion()">Sí, confirmar</button>
+      <button onclick="cerrarModalConfirmacion()">Cancelar</button>
+    </div>
+  </div>
+
+  <script>
+    const seleccionados = new Set();
+
+    function toggleSeleccion(elemento, numero) {
+      if (seleccionados.has(numero)) {
+        seleccionados.delete(numero);
+        elemento.classList.remove("seleccionado");
+      } else {
+        seleccionados.add(numero);
+        elemento.classList.add("seleccionado");
+      }
+    }
+
+    function abrirModalConfirmacion() {
+      if (seleccionados.size === 0) {
+        alert("Por favor selecciona al menos un número.");
+        return;
+      }
+      document.getElementById("modalConfirmacion").style.display = "flex";
+    }
+
+    function cerrarModalConfirmacion() {
+      document.getElementById("modalConfirmacion").style.display = "none";
+    }
+
+    function confirmarSeleccion() {
+      const numerosArray = Array.from(seleccionados).sort((a, b) => a - b);
+
+      fetch('/reservar', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ numeros: numerosArray })
+      })
+      .then(response => {
+        if (response.ok) {
+          return response.json();
+        } else if (response.status === 409) {
+          return response.json().then(data => {
+            alert("Algunos números ya están reservados: " + data.ya_reservados.join(", "));
+            throw new Error("Números reservados");
+          });
+        } else {
+          throw new Error("Error en la reserva");
+        }
+      })
+      .then(data => {
+        const mensaje = `Hola, quiero pagar los boletos de la rifa con los números: ${numerosArray.join(", ")}`;
+        const telefono = "525564368573"; // Cambia este número
+        const url = `https://wa.me/${telefono}?text=${encodeURIComponent(mensaje)}`;
+        window.open(url, "_blank");
+        location.reload();
+      })
+      .catch(err => {
+        console.error(err);
+      })
+      .finally(() => {
+        cerrarModalConfirmacion();
+      });
+    }
+  </script>
+</body>
+</html>
+
+
+
+
+
+
