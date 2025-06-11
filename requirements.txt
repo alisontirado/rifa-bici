@@ -40,7 +40,6 @@ pyglet==1.5.29
 Pygments==2.19.1
 PyMySQL==1.1.1
 pyparsing==3.1.4
-pypiwin32==223
 python-dateutil==2.9.0.post0
 python-dotenv==1.0.1
 requests==2.32.3
